@@ -6,11 +6,11 @@ require 'httpsql/version'
 Gem::Specification.new do |spec|
   spec.name          = "httpsql"
   spec.version       = Httpsql::VERSION
-  spec.authors       = ["Sean Shillo", "Alejandro Ciniglio"]
-  spec.email         = ["sean@adaptly.com", "alejandro@adaptly.com"]
-  spec.description   = %q{Do sql over http}
-  spec.summary       = %q{httpsql}
-  spec.homepage      = ""
+  spec.authors       = [ "Philip Champon", "Alejandro Ciniglio", "Sean Shillo" ]
+  spec.email         = [ "philip@adaptly.com", "alejandro@adaptly.com", "sean@adaptly.com" ]
+  spec.description   = %q{Expose model columns and ARel methods through query parameters in grape end points}
+  spec.summary       = %q{Select model specified fields, create arbitrary queries, all using CGI query parameters}
+  spec.homepage      = "https://github.com/Adaptly/httpsql"
   spec.license       = "MIT"
 
   spec.files         = `git ls-files`.split($/)
@@ -20,5 +20,7 @@ Gem::Specification.new do |spec|
 
   spec.add_development_dependency "bundler", "~> 1.3"
   spec.add_development_dependency "rake"
-  spec.add_dependency "activesupport"
+  spec.add_dependency "activerecord", ">= 3.0"
+  spec.add_dependency "grape"
+  spec.add_development_dependency "sqlite3"
 end
