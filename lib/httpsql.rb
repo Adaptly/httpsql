@@ -7,20 +7,32 @@ module Httpsql
 
   module ClassMethods
     def where_params_eq(params={})
-      cond = valid_params(params).map do |k,v|
+      fields = params[:field] || []
+      conds = []
+
+      valid_params(params).each do |k,v|
         (k, m) = k.to_s.split('.')
         next if k.to_s == 'access_token' 
         if m
-          arel_table[k.to_sym].send(m.to_sym, v)
+          if %w(sum minimum maximum).include?(m)
+            fields << arel_table[k].send(m).as(k)
+          elsif !arel_table[k].respond_to?(m)
+            args = v.split(',')
+            fields << Arel::Nodes::NamedFunction.new(m, [arel_table[k], *args], k)
+          else
+            conds << arel_table[k].send(m, v)
+          end
         elsif v.respond_to?(:any?)
-          arel_table[k.to_sym].in(v)
+          conds << arel_table[k].in(v)
         else
-          arel_table[k.to_sym].eq(v)
+          conds << arel_table[k].eq(v)
         end
-      end.inject{|x,y| x.and(y)}
+      end
 
-      ar_rel = where(cond)
-      ar_rel = ar_rel.select(params[:field]) if params[:field]
+      conds = conds.compact.inject{|x,y| x.and(y)}
+
+      ar_rel = where(conds)
+      ar_rel = ar_rel.select(fields) if fields.any?
       ar_rel
     end
 
@@ -45,3 +57,4 @@ module Httpsql
     end
   end
 end
+
