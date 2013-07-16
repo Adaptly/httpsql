@@ -1,34 +1,12 @@
-require 'minitest/spec'
-require 'minitest/autorun'
-require 'active_record'
-require 'httpsql'
-
-ActiveRecord::Base.configurations[:test] = {adapter:  'sqlite3', database: 'tmp/httpsql_test'}
-ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations[:test])
-ActiveRecord::Base.connection.execute %Q{ DROP TABLE IF EXISTS foo_models }
-ActiveRecord::Base.connection.execute %Q{ 
-  CREATE TABLE foo_models (
-    id integer,
-    int_field integer,
-    string_field text,
-    access_token text,
-    created_at text default CURRENT_TIMESTAMP,
-    updated_at text default CURRENT_TIMESTAMP,
-    primary key(id)
-  );
-}
-class FooModel < ActiveRecord::Base
-  include Httpsql
-  attr_accessible :int_field, :string_field, :access_token
-end
+require 'test_helper'
 
 def generate_models
   FooModel.create!([
-    {int_field: 0, string_field: "zero",  access_token: "000"},
-    {int_field: 1, string_field: "one",   access_token: "111"},
-    {int_field: 2, string_field: "two",   access_token: "222"},
-    {int_field: 3, string_field: "three", access_token: "333"},
-    {int_field: 4, string_field: "four",  access_token: "444"},
+    {int_field: 0, dec_field: 0.01, string_field: "zero",  access_token: "000"},
+    {int_field: 1, dec_field: 1.01, string_field: "one",   access_token: "111"},
+    {int_field: 2, dec_field: 2.01, string_field: "two",   access_token: "222"},
+    {int_field: 3, dec_field: 3.01, string_field: "three", access_token: "333"},
+    {int_field: 4, dec_field: 4.01, string_field: "four",  access_token: "444"},
   ])
 end
 
@@ -112,10 +90,35 @@ describe Httpsql do
     FooModel.where_params_eq("int_field.eq" => 0, field: [:int_field, :id]).must_equal model
   end
 
+  it 'sums the specified field' do
+    models = generate_models
+    expected = models.collect(&:int_field).inject(:+)
+    FooModel.where_params_eq("int_field.sum" => nil).first.int_field.must_equal expected
+  end
+
+  it 'selects the maximum value for the specified field' do
+    models = generate_models
+    expected = models.collect(&:int_field).max
+    FooModel.where_params_eq("int_field.maximum" => nil).first.int_field.must_equal expected
+  end
+
+  it 'selects the minimum value for the specified field' do
+    models = generate_models
+    expected = models.collect(&:int_field).min
+    FooModel.where_params_eq("int_field.minimum" => nil).first.int_field.must_equal expected
+  end
+
+  it 'generates the specified sql for rounding' do
+    models = generate_models
+    expected = models.collect(&:dec_field).map{|v| v.round.to_f}
+    FooModel.where_params_eq("dec_field.round" => "1").collect(&:dec_field).map{|v| v.to_f}.must_equal expected
+  end
+
   it 'generates the correct documentation' do
     FooModel.route_params.must_equal({
       "id"           => {:type => "integer", :desc => "id",            :primary => true},
       "int_field"    => {:type => "integer", :desc => "int_field",     :primary => false},
+      "dec_field"    => {:type => "decimal", :desc => "dec_field",     :primary => false},
       "string_field" => {:type => "text",    :desc => "string_field",  :primary => false},
       "access_token" => {:type => "text",    :desc => "access_token",  :primary => false},
       "created_at"   => {:type => "text",    :desc => "created_at",    :primary => false},

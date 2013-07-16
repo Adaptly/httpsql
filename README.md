@@ -36,6 +36,7 @@ Assume you have a model, widget, whose fields are id, int_field, string_field, c
 
     create_table "widgets", :force => true do |t|
       t.integer  "int_field"
+      t.float    "dec_field"
       t.string   "string_field"
       t.datetime "created_at", :null => false
       t.datetime "updated_at", :null => false
@@ -45,7 +46,7 @@ Assume you have a model, widget, whose fields are id, int_field, string_field, c
 
     class Widget < ActiveRecord::Base
       include Httpsql
-      attr_accessible :int_field, :string_field
+      attr_accessible :int_field, :dec_field, :string_field
     end
 
 ### api.rb
@@ -97,6 +98,18 @@ Query your new API
 
     curl 'http://localhost:3000/api/v1/widgets?id[]=1&id[]=2&created_at.gt=2013-06-01&fields[]=id&fields[]=int_field'
     SELECT id, int_field FROM widgets WHERE id IN (1,2) AND created_at > '2013-06-01'
+
+    curl 'http://localhost:3000/api/v1/widgets?int_field.sum'
+    SELECT SUM(int_field) AS int_field FROM widgets
+
+    curl 'http://localhost:3000/api/v1/widgets?int_field.maximum'
+    SELECT MAX(int_field) AS int_field FROM widgets
+
+    curl 'http://localhost:3000/api/v1/widgets?int_field.minimum'
+    SELECT MIN(int_field) AS int_field FROM widgets
+
+    curl 'http://localhost:3000/api/v1/widgets?dec_field.round=1'
+    SELECT ROUND(dec_field, 1) AS dec_field FROM widgets
 
     curl 'http://localhost:3000/api/v1/describe_api'
     Returns JSON describing the API
