@@ -1,5 +1,11 @@
 # Httpsql
 
+[![Gem Version](https://badge.fury.io/rb/httpsql.png)](http://badge.fury.io/rb/httpsql)
+[![Build Status](https://travis-ci.org/Adaptly/httpsql.png)](https://travis-ci.org/Adaptly/httpsql)
+[![Code Climate](https://codeclimate.com/github/Adaptly/httpsql.png)](https://codeclimate.com/github/Adaptly/httpsql)
+[![Dependency Status](https://gemnasium.com/Adaptly/httpsql.png)](https://gemnasium.com/Adaptly/httpsql)
+[![Coverage Status](https://coveralls.io/repos/Adaptly/httpsql/badge.png)](https://coveralls.io/r/Adaptly/httpsql)
+
 Httpsql is a module, designed to be included in [Active Record](http://api.rubyonrails.org/classes/ActiveRecord/Base.html) 
 models exposed by [grape](https://github.com/intridea/grape). Once the module is
 included, a given model can respond directly to query params passed to it, using
