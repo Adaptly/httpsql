@@ -1,26 +1,31 @@
 # Httpsql
 
 [![Gem Version](https://badge.fury.io/rb/httpsql.png)](http://badge.fury.io/rb/httpsql)
-[![Build Status](https://travis-ci.org/Adaptly/httpsql.png)](https://travis-ci.org/Adaptly/httpsql)
+[![Build Status](https://travis-ci.org/Adaptly/httpsql.png?branch=master)](https://travis-ci.org/Adaptly/httpsql)
 [![Code Climate](https://codeclimate.com/github/Adaptly/httpsql.png)](https://codeclimate.com/github/Adaptly/httpsql)
 [![Dependency Status](https://gemnasium.com/Adaptly/httpsql.png)](https://gemnasium.com/Adaptly/httpsql)
 [![Coverage Status](https://coveralls.io/repos/Adaptly/httpsql/badge.png)](https://coveralls.io/r/Adaptly/httpsql)
 
-Httpsql is a module, designed to be included in [Active Record](http://api.rubyonrails.org/classes/ActiveRecord/Base.html) 
-models exposed by [grape](https://github.com/intridea/grape). Once the module is
-included, a given model can respond directly to query params passed to it, using
-`where_params_eq`. You can also constrain the fields returned by the model,
-using the `fields` query parameter.
+Httpsql is a module, designed to be included in [Active
+Record](http://api.rubyonrails.org/classes/ActiveRecord/Base.html) models
+exposed by [grape](https://github.com/intridea/grape). Once the module is
+included, a given model can respond directly to query params passed to it,
+using `with_params`. You can constrain the fields returned by the model, using
+the `field` query parameter. You can also use httpsql to group, join, and order
+results. Currently, only inner joins are supported, using rudimentary Active
+Record joins.
 
 Httpsql uses [ARel](http://www.slideshare.net/flah00/activerecord-arel) to
 generate queries and exposes ARel's methods via query params. The supported ARel 
-methods are eq, not_eq, matches, does_not_match, gt, gteq, lt, lteq.
+methods are eq, not_eq, matches, does_not_match, gt, gteq, lt, lteq, sum, 
+maximum, and minimum. It is also possible to pass columns to arbitrary SQL 
+functions. 
 
 Httpsql also generates documentaion for endpoints, which can be easily merged
-into your existing documentation (`#route_params`).
+into your existing documentation (`#grape_documentation`).
 
-Httpsql reserves one parameter, access_token. If your model has a field called
-access_token, you'll need to rename it.
+Httpsql reserves the following parameters access_token, field, group, join, and order. If
+your model has any columns by the same name, you'll need to rename them.
 
 ## Installation
 
@@ -48,11 +53,27 @@ Assume you have a model, widget, whose fields are id, int_field, string_field, c
       t.datetime "updated_at", :null => false
     end
 
-### model.rb
+    create_table "dongles", :force => true do |t|
+      t.integer  "widget_id"
+      t.string   "description"
+      t.datetime "created_at", :null => false
+      t.datetime "updated_at", :null => false
+    end
+
+### widget.rb
 
     class Widget < ActiveRecord::Base
       include Httpsql
+      has_many :dongles
       attr_accessible :int_field, :dec_field, :string_field
+    end
+
+### dongle.rb
+
+    class Dongle < ActiveRecord::Base
+      include Httpsql
+      belongs_to :widget
+      attr_accessible :description
     end
 
 ### api.rb
@@ -63,13 +84,25 @@ Assume you have a model, widget, whose fields are id, int_field, string_field, c
       default_format :json
 
       resource :widgets do
-        desc 'Get all widgets', {
-          optional_params: Widget.route_params
-        }
+        desc 'Get all widgets'
+        params do
+          Widget.grape_documentation(self)
+        end
         get '/' do
-          present Widget.where_params_eq(params)
+          Widget.with_params(params)
         end
       end
+
+      resource :dongles do
+        desc 'Get all dongles'
+        params do
+          Dongle.grape_documentation(self)
+        end
+        get '/' do
+          Dongle.with_params(params)
+        end
+      end
+
     end
 
 ### config.ru
@@ -102,8 +135,17 @@ Query your new API
     curl 'http://localhost:3000/api/v1/widgets?id[]=1&id[]=2&created_at.gt=2013-06-01'
     SELECT * FROM widgets WHERE id IN (1,2) AND created_at > '2013-06-01'
 
-    curl 'http://localhost:3000/api/v1/widgets?id[]=1&id[]=2&created_at.gt=2013-06-01&fields[]=id&fields[]=int_field'
+    curl 'http://localhost:3000/api/v1/widgets?id[]=1&id[]=2&created_at.gt=2013-06-01&field[]=id&field[]=int_field'
     SELECT id, int_field FROM widgets WHERE id IN (1,2) AND created_at > '2013-06-01'
+
+    curl 'http://localhost:3000/api/v1/widgets?order=widgets.int_field+desc'
+    SELECT * FROM widgets ORDER BY widgets.int_field desc
+
+    curl 'http://localhost:3000/api/v1/widgets?group=widgets.int_field'
+    SELECT * FROM widgets GROUP BY widgets.int_field
+
+    curl 'http://localhost:3000/api/v1/dongles?field[]=description&field[]=widgets.int_field&join[]=widgets&group[]=widgets.string_field&order=string_field'
+    SELECT dongles.description, widgets.int_field FROM dongles INNER JOIN widgets ON (widgets.id = dongles.widget_id) GROUP BY widgets.string_field ORDER BY dongles.string_field
 
     curl 'http://localhost:3000/api/v1/widgets?int_field.sum'
     SELECT SUM(int_field) AS int_field FROM widgets
