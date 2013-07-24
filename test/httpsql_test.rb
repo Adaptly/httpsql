@@ -35,14 +35,26 @@ describe Httpsql do
 
   describe "#httpsql_valid_params" do
     it 'selects a model\'s columns from a given hash' do
-      ret = FooModel.send(:httpsql_valid_params, id: 1, int_field: 2, string_field: "foo", access_token: "a", created_at: '2013-01-01T00:00:00', created_at: '2013-01-01T00:00:00', foo: :bar)
+      FooModel.instance_variable_set(:@httpsql_params, id: 1, int_field: 2, string_field: "foo", access_token: "a", created_at: '2013-01-01T00:00:00', created_at: '2013-01-01T00:00:00', foo: :bar)
+      ret = FooModel.send(:httpsql_valid_params)
       ret.must_equal(id: 1, int_field: 2, string_field: "foo", access_token: "a", created_at: '2013-01-01T00:00:00', created_at: '2013-01-01T00:00:00')
     end
+  end
 
-    it 'selects reserved parameters' do
-      ret = FooModel.send(:httpsql_valid_params, 'join'=>'foo', 'group'=>'bar', 'order'=>'baz')
-      ret.must_equal('join'=>'foo', 'group'=>'bar', 'order'=>'baz')
+  describe "#httpsql_fetch_param" do
+
+    it "fetches symbol keys and converts values to an array" do
+      FooModel.instance_variable_set(:@httpsql_params, "id" => 1)
+      result = FooModel.send(:httpsql_fetch_param, :id)
+      result.must_equal [1]
     end
+
+    it "fetches string keys and converts values to an array" do
+      FooModel.instance_variable_set(:@httpsql_params, id: 1)
+      result = FooModel.send(:httpsql_fetch_param, "id")
+      result.must_equal [1]
+    end
+
   end
 
   describe '#with_params' do
@@ -143,7 +155,7 @@ describe Httpsql do
     it 'groups correctly' do
       models = generate_foo_models
       expected = [FooModel.create({created_at: "1900-01-01"}), models.last]
-      FooModel.with_params("group" => "created_at").must_equal expected
+      FooModel.with_params("group" => "created_at").to_a.must_equal expected
     end
 
     it 'orders unqualified fields correctly' do
