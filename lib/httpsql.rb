@@ -95,6 +95,7 @@ module Httpsql
     end
 
     def httpsql_sql_type_conversion(type)
+      type = ':nil' if type.nil?
       case type.to_sym
         when :bigint then Bignum
         when :date then Date

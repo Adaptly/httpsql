@@ -5,12 +5,12 @@ Coveralls.wear!
 
 require 'minitest/spec'
 require 'minitest/autorun'
+require 'active_support'
 require 'active_record'
 require 'grape'
 require 'httpsql'
 require 'timecop'
 require 'rack/test'
-require 'sqlite3'
 
 ActiveRecord::Base.configurations[:test] = if Object.const_defined?("SQLite3")
                                              {adapter: 'sqlite3', database: 'tmp/httpsql_test'}
@@ -24,28 +24,28 @@ ActiveRecord::Base.configurations[:test] = if Object.const_defined?("SQLite3")
                                              raise 'unknown adapter'
                                            end
 ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations[:test])
-ActiveRecord::Schema.define(version: 20130730100000) do
-  create_table :foo_models, id: true, force: true do |t|
-    t.integer   :int_field
-    t.float     :dec_field
-    t.string    :string_field
-    t.string    :access_token
-    t.datetime  :created_at, null: false
-    t.datetime  :updated_at, null: false
+ActiveRecord::Schema.define(:version => 20130730100000) do
+  create_table 'foo_models', id: :true, force: :true do |t|
+    t.integer   'int_field'
+    t.float     'dec_field'
+    t.string    'string_field'
+    t.string    'access_token'
+    t.datetime  'created_at', null: false
+    t.datetime  'updated_at', null: false
   end
-  create_table :bar_models, id: true, force: true do |t|
+  create_table 'bar_models', id: :true, force: :true do |t|
     t.integer   :foo_model_id
     t.string    :string_field
     t.datetime  :created_at, null: false
     t.datetime  :updated_at, null: false
   end
-  create_table :baz_models, id: true, force: true do |t|
+  create_table 'baz_models', id: :true, force: :true do |t|
     t.integer   :foo_model_id
     t.string    :string_field
     t.datetime  :created_at, null: false
     t.datetime  :updated_at, null: false
   end
-  create_table :bam_models, id: true, force: true do |t|
+  create_table 'bam_models', id: :true, force: :true do |t|
     t.integer   :bar_model_id
     t.string    :string_field
     t.datetime  :created_at, null: false
