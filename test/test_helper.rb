@@ -3,23 +3,26 @@ require 'simplecov'
 require 'coveralls'
 Coveralls.wear!
 
-require 'minitest/spec'
-require 'minitest/autorun'
-require 'active_support'
-require 'active_record'
+require 'rubygems'
+require 'bundler'
+Bundler.setup(:default)
 require 'grape'
-require 'httpsql'
 require 'timecop'
 require 'rack/test'
+require 'minitest/spec'
+require 'minitest/autorun'
+require 'active_record'
+require 'httpsql'
 
+require 'pg'
 ActiveRecord::Base.configurations[:test] = if Object.const_defined?("SQLite3")
                                              {adapter: 'sqlite3', database: 'tmp/httpsql_test'}
                                            elsif Object.const_defined?("Mysql2")
-                                             {adapter: 'mysql2', database: 'httpsql_test', username: 'tavis'}
+                                             {adapter: 'mysql2', database: 'httpsql_test', username: 'travis'}
                                            elsif Object.const_defined?("Mysql")
-                                             {adapter: 'mysql', database: 'httpsql_test', username: 'tavis'}
-                                           elsif Object.const_defined?("Pg")
-                                             {adapter: 'postgresql', database: 'httpsql_test', username: 'tavis'}
+                                             {adapter: 'mysql', database: 'httpsql_test', username: 'travis'}
+                                           elsif Object.const_defined?("PG")
+                                             {adapter: 'postgresql', database: 'httpsql_test', username: 'travis'}
                                            else
                                              raise 'unknown adapter'
                                            end
