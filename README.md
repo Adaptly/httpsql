@@ -60,6 +60,10 @@ Assume you have a model, widget, whose fields are id, int_field, string_field, c
       t.datetime "updated_at", :null => false
     end
 
+### config/initializers/activerecord.rb
+
+    ActiveRecord::Base.include_root_in_json = false
+
 ### widget.rb
 
     class Widget < ActiveRecord::Base
