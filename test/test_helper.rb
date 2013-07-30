@@ -10,52 +10,92 @@ require 'grape'
 require 'httpsql'
 require 'timecop'
 require 'rack/test'
+require 'sqlite3'
 
-ActiveRecord::Base.configurations[:test] = {adapter:  'sqlite3', database: 'tmp/httpsql_test'}
+ActiveRecord::Base.configurations[:test] = if Object.const_defined?("SQLite3")
+                                             {adapter: 'sqlite3', database: 'tmp/httpsql_test'}
+                                           elsif Object.const_defined?("Mysql2")
+                                             {adapter: 'mysql2', database: 'httpsql_test', username: 'tavis'}
+                                           elsif Object.const_defined?("Mysql")
+                                             {adapter: 'mysql', database: 'httpsql_test', username: 'tavis'}
+                                           elsif Object.const_defined?("Pg")
+                                             {adapter: 'postgresql', database: 'httpsql_test', username: 'tavis'}
+                                           else
+                                             raise 'unknown adapter'
+                                           end
 ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations[:test])
-ActiveRecord::Base.connection.execute %Q{ DROP TABLE IF EXISTS foo_models }
-ActiveRecord::Base.connection.execute %Q{ 
-  CREATE TABLE foo_models (
-    id integer,
-    int_field integer,
-    dec_field decimal,
-    string_field text,
-    access_token text,
-    created_at datetime default CURRENT_TIMESTAMP,
-    updated_at datetime default CURRENT_TIMESTAMP,
-    primary key(id)
-  );
-}
+ActiveRecord::Schema.define(version: 20130730100000) do
+  create_table :foo_models, id: true, force: true do |t|
+    t.integer   :int_field
+    t.float     :dec_field
+    t.string    :string_field
+    t.string    :access_token
+    t.datetime  :created_at, null: false
+    t.datetime  :updated_at, null: false
+  end
+  create_table :bar_models, id: true, force: true do |t|
+    t.integer   :foo_model_id
+    t.string    :string_field
+    t.datetime  :created_at, null: false
+    t.datetime  :updated_at, null: false
+  end
+  create_table :baz_models, id: true, force: true do |t|
+    t.integer   :foo_model_id
+    t.string    :string_field
+    t.datetime  :created_at, null: false
+    t.datetime  :updated_at, null: false
+  end
+  create_table :bam_models, id: true, force: true do |t|
+    t.integer   :bar_model_id
+    t.string    :string_field
+    t.datetime  :created_at, null: false
+    t.datetime  :updated_at, null: false
+  end
+end
 
-ActiveRecord::Base.connection.execute %Q{ DROP TABLE IF EXISTS bar_models }
-ActiveRecord::Base.connection.execute %Q{ 
-  CREATE TABLE bar_models (
-    id integer,
-    foo_model_id integer,
-    string_field text,
-    primary key(id)
-  );
-}
+#ActiveRecord::Base.connection.execute %Q{ DROP TABLE IF EXISTS foo_models }
+#ActiveRecord::Base.connection.execute %Q{ 
+  #CREATE TABLE foo_models (
+    #id integer,
+    #int_field integer,
+    #dec_field decimal,
+    #string_field text,
+    #access_token text,
+    #created_at datetime default CURRENT_TIMESTAMP,
+    #updated_at datetime default CURRENT_TIMESTAMP,
+    #primary key(id)
+  #);
+#}
 
-ActiveRecord::Base.connection.execute %Q{ DROP TABLE IF EXISTS baz_models }
-ActiveRecord::Base.connection.execute %Q{ 
-  CREATE TABLE baz_models (
-    id integer,
-    foo_model_id integer,
-    string_field text,
-    primary key(id)
-  );
-}
+#ActiveRecord::Base.connection.execute %Q{ DROP TABLE IF EXISTS bar_models }
+#ActiveRecord::Base.connection.execute %Q{ 
+  #CREATE TABLE bar_models (
+    #id integer,
+    #foo_model_id integer,
+    #string_field text,
+    #primary key(id)
+  #);
+#}
 
-ActiveRecord::Base.connection.execute %Q{ DROP TABLE IF EXISTS bam_models }
-ActiveRecord::Base.connection.execute %Q{ 
-  CREATE TABLE bam_models (
-    id integer,
-    bar_model_id integer,
-    string_field text,
-    primary key(id)
-  );
-}
+#ActiveRecord::Base.connection.execute %Q{ DROP TABLE IF EXISTS baz_models }
+#ActiveRecord::Base.connection.execute %Q{ 
+  #CREATE TABLE baz_models (
+    #id integer,
+    #foo_model_id integer,
+    #string_field text,
+    #primary key(id)
+  #);
+#}
+
+#ActiveRecord::Base.connection.execute %Q{ DROP TABLE IF EXISTS bam_models }
+#ActiveRecord::Base.connection.execute %Q{ 
+  #CREATE TABLE bam_models (
+    #id integer,
+    #bar_model_id integer,
+    #string_field text,
+    #primary key(id)
+  #);
+#}
 
 class FooModel < ActiveRecord::Base
   include Httpsql
