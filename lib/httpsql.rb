@@ -15,11 +15,13 @@ module Httpsql
     #       MyModel.with_params(params)
     #     end
     #   end
+    # @raise [ActiveRecord::StatementInvalid] if any fields or functions are invalid
+    # @raise [ActiveRecord::ConfigurationError] if a join relation is invalid
     def with_params(params={})
       @httpsql_params = params
       @httpsql_conds  = []
 
-      @httpsql_fields = httpsql_fetch_param :field
+      @httpsql_fields = httpsql_extract_fields
       joins  = httpsql_extract_joins
       groups = httpsql_extract_groups
       orders = httpsql_extract_orders
@@ -60,14 +62,14 @@ module Httpsql
       columns.each do |c|
         opt_hash = {}
         if (k = httpsql_sql_type_conversion(c.type))
-          opt_hash[:type] = k 
+          opt_hash[:desc] = k.to_s
         end
         ctx.optional c.name, opt_hash
       end
-      ctx.optional :field, type: Array, desc: "An array of strings: fields to select from the database"
-      ctx.optional :group, type: Array, desc: "An array of strings: fields to group by"
-      ctx.optional :order, type: Array, desc: "An array of strings: fields to order by"
-      ctx.optional :join,  type: Array, desc: "An array of strings: tables to join (#{httpsql_join_tables.join(',')})"
+      ctx.optional :field, desc: "An array of strings: fields to select from the database"
+      ctx.optional :group, desc: "An array of strings: fields to group by"
+      ctx.optional :order, desc: "An array of strings: fields to order by"
+      ctx.optional :join,  desc: "An array of strings: tables to join (#{httpsql_join_tables.join(',')})"
     end
 
     private
@@ -79,7 +81,8 @@ module Httpsql
       v['.'].nil? ? arel_table[v] : v.split('.').map!{|x| connection.quote_table_name(x)}.join('.')
     end
 
-    def httpsql_quote_value_with_args(v)
+    def httpsql_quote_value_with_args(v, default=nil)
+      v = v[' '].nil? ? "#{v} #{default}" : v
       match = v.match(/([^\s]+)(?:\s+(.*))?/)
       q = httpsql_quote_value(match[1])
       if match[2]
@@ -113,6 +116,12 @@ module Httpsql
       Array(@httpsql_params[key_sym] || @httpsql_params[key_s])
     end
 
+    def httpsql_extract_fields
+      httpsql_fetch_param(:field).map! do |w|
+        httpsql_quote_value(w)
+      end
+    end
+
     def httpsql_extract_joins
       httpsql_fetch_param(:join).map!(&:to_sym)
     end
@@ -125,7 +134,7 @@ module Httpsql
 
     def httpsql_extract_orders
       httpsql_fetch_param(:order).map! do |w|
-        httpsql_quote_value_with_args(w)
+        httpsql_quote_value_with_args(w,'asc')
       end
     end
 
@@ -139,7 +148,9 @@ module Httpsql
         @httpsql_fields << Arel::Nodes::NamedFunction.new(method, [arel_table[key], *args], key)
       # column.arel_predicate (ie lt, gt, not_eq, etc)
       else
-        @httpsql_conds << arel_table[key].send(method, value)
+        Array(value).each do |v|
+          @httpsql_conds << arel_table[key].send(method, v)
+        end
       end
     end
 
