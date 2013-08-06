@@ -177,44 +177,55 @@ describe TestApi do
       models = generate_foo_models
       FooModel.create({int_field: 1000})
       model = FooModel.create({int_field: 1000})
-      expected = models.to_a << model
-      get "/api/v1/foo_models?group=int_field"
-      last_response.body.must_equal expected.to_json
+      expected = [*models.to_a, model].map! do |m|
+        {int_field: m.int_field}
+      end
+      get "/api/v1/foo_models?group=int_field&field[]=int_field"
+      JSON.parse(last_response.body).must_equal expected
     end
 
     it "returns foo_models grouped by int_field,dec_field" do
       models = generate_foo_models
       FooModel.create({int_field: 1000, dec_field: 1000.0})
       model = FooModel.create({int_field: 1000, dec_field: 1000.0})
-      expected = models.to_a << model
-      get "/api/v1/foo_models?group[]=dec_field&group[]=int_field"
-      last_response.body.must_equal expected.to_json
+      expected = [*models.to_a, model].map! do |m|
+        {dec_field: m.dec_field, int_field: m.int_field}
+      end
+      get "/api/v1/foo_models?group[]=dec_field&group[]=int_field&field[]=dec_field&field[]=int_field"
+      JSON.parse(last_response.body).must_equal expected
     end
 
     it "returns a foo_model foo_models.int_field" do
       models = generate_foo_models
       FooModel.create({int_field: 1000})
       model = FooModel.create({int_field: 1000})
-      expected = models.to_a << model
-      get "/api/v1/foo_models?group=foo_models.int_field"
-      last_response.body.must_equal expected.to_json
+      expected = [*models.to_a, model].map! do |m|
+        {int_field: m.int_field}
+      end
+      get "/api/v1/foo_models?group=foo_models.int_field&field[]=int_field"
+      JSON.parse(last_response.body).must_equal expected
     end
 
     it "returns foo_model foo_models.dec_field,foo_models.int_field" do
       models = generate_foo_models
       FooModel.create({int_field: 1000, dec_field: 1000.0})
       model = FooModel.create({int_field: 1000, dec_field: 1000.0})
-      expected = models.to_a << model
-      get "/api/v1/foo_models?group[]=foo_models.dec_field&group[]=foo_models.int_field"
-      last_response.body.must_equal expected.to_json
+      expected = [models.first, model].map! do |m|
+        {dec_field: m.dec_field, int_field: m.int_field}
+      end
+      get "/api/v1/foo_models?group[]=foo_models.dec_field&group[]=foo_models.int_field&field[]=foo_models.dec_field&field[]=foo_models.int_field"
+      JSON.parse(last_response.body).must_equal expected
     end
 
     it "returns foo_model dec_field,int_field id=1,7" do
       models = generate_foo_models
       FooModel.create({int_field: 1000, dec_field: 1000.0})
       model = FooModel.create({int_field: 1000, dec_field: 1000.0})
-      get "/api/v1/foo_models?group[]=dec_field&group[]=int_field&id[]=#{model.id}&id[]=1"
-      last_response.body.must_equal [models.first, model].to_json
+      expected = [models.first, model].map! do |m|
+        {dec_field: m.dec_field, int_field: m.int_field}
+      end
+      get "/api/v1/foo_models?group[]=dec_field&group[]=int_field&id[]=#{model.id}&id[]=1&field[]=dec_field&field[]=int_field"
+      last_response.body.must_equal expected.to_json
     end
 
   end
@@ -413,7 +424,7 @@ describe TestApi do
       expected = baz_models[1..2].map do |m|
         {"id" => m.foo_model_id*2, "foo_model_id" => m.foo_model_id*2, "int_field" => m.foo_model.int_field}
       end
-      get "/api/v1/baz_models?join=foo_model&field[]=id&field[]=foo_model_id&foo_model_id.sum&group=foo_model_id&field[]=foo_models.int_field&order=foo_models.int_field+desc"
+      get "/api/v1/baz_models?join=foo_model&field[]=foo_model_id&field[]=foo_models.int_field&field[]=foo_models.dec_field"
       JSON.parse(last_response.body).must_equal expected.reverse
     end
 

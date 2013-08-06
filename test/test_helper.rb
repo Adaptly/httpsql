@@ -30,7 +30,7 @@ ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations[:test]
 ActiveRecord::Schema.define(:version => 20130730100000) do
   create_table 'foo_models', id: :true, force: :true do |t|
     t.integer   'int_field'
-    t.float     'dec_field'
+    t.decimal   'dec_field'
     t.string    'string_field'
     t.string    'access_token'
     t.datetime  'created_at', null: false
