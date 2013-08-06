@@ -147,6 +147,8 @@ module Httpsql
       elsif !arel_table[key].respond_to?(method)
         args = value.split(',')
         @httpsql_fields << Arel::Nodes::NamedFunction.new(method, [arel_table[key], *args], key)
+        require 'pry-nav';binding.pry
+        puts @httpsql_fields
       # column.arel_predicate (ie lt, gt, not_eq, etc)
       else
         Array(value).each do |v|

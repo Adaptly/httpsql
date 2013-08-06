@@ -139,8 +139,8 @@ describe Httpsql do
       models = generate_foo_models
       FooModel.create({int_field: 1000})
       model = FooModel.create({int_field: 1000})
-      expected = models.to_a << model
-      FooModel.with_params("group" => "int_field").to_a.must_equal expected
+      expected = FooModel.select(:int_field).group(:int_field).collect(&:attributes)
+      FooModel.with_params("group" => "int_field", "field" => "int_field").collect(&:attributes).must_equal expected
     end
 
     it 'orders unqualified fields correctly' do
@@ -171,10 +171,10 @@ describe Httpsql do
       models = generate_foo_models
       generate_baz_models
       expected = [
-        {"int_field"=>1, "string_field"=>"onepointone"},
-        {"int_field"=>1, "string_field"=>"onepointzero"},
-        {"int_field"=>0, "string_field"=>"zeropointone"},
-        {"int_field"=>0, "string_field"=>"zeropointzero"},
+        {"int_field"=>"1", "string_field"=>"onepointone"},
+        {"int_field"=>"1", "string_field"=>"onepointzero"},
+        {"int_field"=>"0", "string_field"=>"zeropointone"},
+        {"int_field"=>"0", "string_field"=>"zeropointzero"},
       ]
       ## TODO: sqlite3 && activerecord-4.0 insert an id field... why!?
       expected.map! do |e|
@@ -183,7 +183,7 @@ describe Httpsql do
       end if ActiveRecord::VERSION::MAJOR >= 4
       query = BazModel.with_params("join" => "foo_model", 
                                    "field" => ["foo_models.int_field", "baz_models.string_field"], 
-                                   "group" => ["baz_models.string_field"],
+                                   "group" => ["foo_models.int_field", "baz_models.string_field"],
                                    "order" => ["baz_models.string_field"])
       query.collect(&:attributes).must_equal expected
     end

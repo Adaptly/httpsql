@@ -1,9 +1,9 @@
+ENV['DB'] ||= 'postgres'
 require 'simplecov'
 #SimpleCov.start
 require 'coveralls'
 Coveralls.wear!
 
-require 'rubygems'
 require 'bundler'
 Bundler.setup(:default)
 require 'grape'
@@ -14,18 +14,18 @@ require 'minitest/autorun'
 require 'active_record'
 require 'httpsql'
 
-require 'pg'
-ActiveRecord::Base.configurations[:test] = if Object.const_defined?("SQLite3")
-                                             {adapter: 'sqlite3', database: 'tmp/httpsql_test'}
-                                           elsif Object.const_defined?("Mysql2")
-                                             {adapter: 'mysql2', database: 'httpsql_test', username: 'travis'}
-                                           elsif Object.const_defined?("Mysql")
-                                             {adapter: 'mysql', database: 'httpsql_test', username: 'travis'}
-                                           elsif Object.const_defined?("PG")
-                                             {adapter: 'postgresql', database: 'httpsql_test', username: 'travis'}
-                                           else
-                                             raise 'unknown adapter'
-                                           end
+if ENV['DB'] == 'mysql'
+  require 'mysql2'
+  ActiveRecord::Base.configurations[:test] = {adapter: 'mysql2', database: 'httpsql_test', username: 'travis'}
+elsif ENV['DB'] == 'sqlite'
+  require 'sqlite3'
+  ActiveRecord::Base.configurations[:test] = {adapter: 'sqlite', database: 'httpsql_test'}
+elsif ENV['DB'] == 'postgres'
+  require 'pg'
+  ActiveRecord::Base.configurations[:test] = {adapter: 'postgresql', database: 'httpsql_test', username: 'travis'}
+else
+  raise 'unknown adapter'
+end
 ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations[:test])
 ActiveRecord::Schema.define(:version => 20130730100000) do
   create_table 'foo_models', id: :true, force: :true do |t|
@@ -55,50 +55,6 @@ ActiveRecord::Schema.define(:version => 20130730100000) do
     t.datetime  :updated_at, null: false
   end
 end
-
-#ActiveRecord::Base.connection.execute %Q{ DROP TABLE IF EXISTS foo_models }
-#ActiveRecord::Base.connection.execute %Q{ 
-  #CREATE TABLE foo_models (
-    #id integer,
-    #int_field integer,
-    #dec_field decimal,
-    #string_field text,
-    #access_token text,
-    #created_at datetime default CURRENT_TIMESTAMP,
-    #updated_at datetime default CURRENT_TIMESTAMP,
-    #primary key(id)
-  #);
-#}
-
-#ActiveRecord::Base.connection.execute %Q{ DROP TABLE IF EXISTS bar_models }
-#ActiveRecord::Base.connection.execute %Q{ 
-  #CREATE TABLE bar_models (
-    #id integer,
-    #foo_model_id integer,
-    #string_field text,
-    #primary key(id)
-  #);
-#}
-
-#ActiveRecord::Base.connection.execute %Q{ DROP TABLE IF EXISTS baz_models }
-#ActiveRecord::Base.connection.execute %Q{ 
-  #CREATE TABLE baz_models (
-    #id integer,
-    #foo_model_id integer,
-    #string_field text,
-    #primary key(id)
-  #);
-#}
-
-#ActiveRecord::Base.connection.execute %Q{ DROP TABLE IF EXISTS bam_models }
-#ActiveRecord::Base.connection.execute %Q{ 
-  #CREATE TABLE bam_models (
-    #id integer,
-    #bar_model_id integer,
-    #string_field text,
-    #primary key(id)
-  #);
-#}
 
 class FooModel < ActiveRecord::Base
   include Httpsql
@@ -154,10 +110,10 @@ module ModelHelpers
   def clean_models
     %w(foo_models bar_models baz_models).each do |t|
       FooModel.connection.execute %Q{DELETE FROM #{t}}
+      FooModel.connection.execute %Q{ALTER SEQUENCE #{t}_id_seq RESTART} if ENV['DB']=='postgres'
     end
   end
 end
-
 
 
 class TestApi < Grape::API
@@ -192,10 +148,5 @@ module ApiHelpers
     end
     Rack::URLMap.new('/api' => api)
   end
-
-  def time
-    Time.current.utc.strftime("%Y-%m-%d %H:%M:%S")
-  end
 end
-
 
