@@ -151,6 +151,9 @@ Query your new API
     curl 'http://localhost:3000/api/v1/dongles?field[]=description&field[]=widgets.int_field&join[]=widgets&group[]=widgets.string_field&order=string_field'
     SELECT dongles.description, widgets.int_field FROM dongles INNER JOIN widgets ON (widgets.id = dongles.widget_id) GROUP BY widgets.string_field ORDER BY dongles.string_field
 
+    curl 'http://localhost:3000/api/v1/dongles?field[]=widgets.int_field.sum&join[]=widgets&group[]=widgets.string_field
+    SELECT SUM(widgets.int_field) FROM dongles INNER JOIN widgets ON (widgets.id = dongles.widget_id) GROUP BY widgets.string_field
+
     curl 'http://localhost:3000/api/v1/widgets?int_field.sum'
     SELECT SUM(int_field) AS int_field FROM widgets
 

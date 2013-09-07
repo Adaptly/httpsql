@@ -15,11 +15,72 @@ describe Httpsql do
     clean_models
   end
 
+  describe "#httpsql_objectify" do
+    it 'returns an object when passed a symbol' do
+      FooModel.send(:httpsql_objectify, :foo_model).must_equal FooModel
+    end
+
+    it 'returns an object when passed a string' do
+      FooModel.send(:httpsql_objectify, 'foo_model').must_equal FooModel
+    end
+
+    it 'raises NameError when an invalid object is passed' do
+      proc {
+        FooModel.send(:httpsql_objectify, :nope_not_gonna_do_it)
+      }.must_raise NameError
+    end
+  end
+
+  describe '#httpsql_arelize' do
+    it 'returns an ARel object' do
+      FooModel.send(:httpsql_arelize, :foo_model).must_equal FooModel.arel_table
+    end
+  end
+
+  describe '#httpsql_selectable_join_columns' do
+    it 'returns all of model\'s joinable columns' do
+      expected = %w(
+        bar_model.id
+        bar_model.foo_model_id
+        bar_model.string_field
+        baz_models.id
+        baz_models.foo_model_id
+        baz_models.string_field
+      )
+      FooModel.send(:httpsql_selectable_join_columns).must_equal expected
+    end
+
+  end
+
+  describe '#httpsql_selected_join_params' do
+    it 'selects a model\'s joined columns' do
+      FooModel.instance_variable_set(:@httpsql_joins, [:baz_models])
+      FooModel.instance_variable_set(:@httpsql_params, "baz_models.id" => 1,"baz_models.foo_model_id" => 1)
+      expected = {"baz_models.id" => 1, "baz_models.foo_model_id" => 1}
+      FooModel.send(:httpsql_selected_join_params).must_equal expected
+    end
+
+    it 'selects a model\'s joined columns' do
+      FooModel.instance_variable_set(:@httpsql_joins, [:baz_models])
+      FooModel.instance_variable_set(:@httpsql_params, "baz_models.id" => 1,"baz_models.foo_model_id" => 1)
+      expected = {"baz_models.id" => 1, "baz_models.foo_model_id" => 1}
+      FooModel.send(:httpsql_selected_join_params).must_equal expected
+    end
+
+  end
+
   describe "#httpsql_valid_params" do
     it 'selects a model\'s columns from a given hash' do
       FooModel.instance_variable_set(:@httpsql_params, id: 1, int_field: 2, string_field: "foo", access_token: "a", created_at: '2013-01-01T00:00:00', created_at: '2013-01-01T00:00:00', foo: :bar)
       ret = FooModel.send(:httpsql_valid_params)
       ret.must_equal(id: 1, int_field: 2, string_field: "foo", access_token: "a", created_at: '2013-01-01T00:00:00', created_at: '2013-01-01T00:00:00')
+    end
+
+    it 'selects a model\'s columns and joined columns from a given hash' do
+      FooModel.instance_variable_set(:@httpsql_joins, [:baz_models])
+      FooModel.instance_variable_set(:@httpsql_params, id: 1, int_field: 2, string_field: "foo", access_token: "a", created_at: '2013-01-01T00:00:00', created_at: '2013-01-01T00:00:00', foo: :bar, "baz_models.foo_model_id" => 1)
+      ret = FooModel.send(:httpsql_valid_params)
+      ret.must_equal(id: 1, int_field: 2, string_field: "foo", access_token: "a", created_at: '2013-01-01T00:00:00', created_at: '2013-01-01T00:00:00', "baz_models.foo_model_id" => 1)
     end
   end
 
@@ -165,6 +226,40 @@ describe Httpsql do
       models = generate_foo_models
       generate_baz_models
       FooModel.with_params("join" => "baz_models").to_a.must_equal [models[0], models[0], models[1], models[1]]
+    end
+
+    it 'joins belongs_to and can apply arbitrary functions to arbitrary fields' do
+      generate_foo_models
+      FooModel.all.each{|f| f.baz_models.create}
+      expected = [
+        {"dec_field" => 0.0},
+        {"dec_field" => 1.0},
+        {"dec_field" => 2.0},
+        {"dec_field" => 3.0},
+        {"dec_field" => 4.0},
+      ]
+      ## TODO: sqlite3 && activerecord-4.0 insert an id field... why!?
+      expected.map! do |e|
+        e["id"] = nil
+        e
+      end if ActiveRecord::VERSION::MAJOR >= 4
+      query = BazModel.with_params("join" => "foo_model", "foo_model.dec_field.round" => '0')
+      query.collect(&:attributes).must_equal expected
+    end
+
+    it 'joins belongs_to and can sum arbitrary fields' do
+      generate_foo_models
+      FooModel.all.each{|f| f.baz_models.create}
+      expected = [
+        "int_field" => 10
+      ]
+      ## TODO: sqlite3 && activerecord-4.0 insert an id field... why!?
+      expected.map! do |e|
+        e["id"] = nil
+        e
+      end if ActiveRecord::VERSION::MAJOR >= 4
+      query = BazModel.with_params("join" => "foo_model", "foo_model.int_field.sum" => nil)
+      query.collect(&:attributes).must_equal expected
     end
 
     it 'joins belongs_to relations and uses field and group' do

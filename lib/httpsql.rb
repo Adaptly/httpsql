@@ -1,6 +1,8 @@
 require "httpsql/version"
 
 module Httpsql
+  MAX_PARAMS = 3
+
   def self.included(base)
     base.send :extend, ClassMethods
   end
@@ -22,21 +24,29 @@ module Httpsql
       @httpsql_conds  = []
 
       @httpsql_fields = httpsql_extract_fields
-      joins  = httpsql_extract_joins
+      @httpsql_joins  = httpsql_extract_joins
       groups = httpsql_extract_groups
       orders = httpsql_extract_orders
 
-      httpsql_valid_params.each do |k,v|
-        k, m = k.to_s.split('.')
-        next if k.to_s == 'access_token' 
+      httpsql_valid_params.each do |key,value|
+        table = method = nil
+        fields = key.to_s.split('.', MAX_PARAMS)
+        if fields.count == MAX_PARAMS
+          table, key, method = fields
+        else
+          table = self.table_name
+          key, method = fields
+        end
+        next if key.to_s == 'access_token' 
 
+        # table.column.sum, table.column.function=arg1, table.column.predicate=x
         # column.sum, column.function=arg1, column.predicate=x
-        if m
-          httpsql_extract_method(k, m, v)
+        if method
+          httpsql_extract_method(table, key, method, value)
 
         # column[]=1&column[]=2 or column=x
         else
-          httpsql_extract_default_predicates(k, v)
+          httpsql_extract_default_predicates(table, key, value)
         end
 
       end
@@ -45,9 +55,9 @@ module Httpsql
 
       ar_rel = where(@httpsql_conds)
       ar_rel = ar_rel.select(@httpsql_fields) if @httpsql_fields.any?
-      ar_rel = ar_rel.joins(joins)  if joins.any?
-      ar_rel = ar_rel.group(groups) if groups.any?
-      ar_rel = ar_rel.order(orders) if orders.any?
+      ar_rel = ar_rel.joins(@httpsql_joins)   if @httpsql_joins.any?
+      ar_rel = ar_rel.group(groups)           if groups.any?
+      ar_rel = ar_rel.order(orders)           if orders.any?
       ar_rel
     end
 
@@ -73,8 +83,40 @@ module Httpsql
     end
 
     private
+
+    def httpsql_objectify(table)
+      table.to_s.classify.constantize
+    end
+
+    def httpsql_arelize(table)
+      httpsql_objectify(table).arel_table
+    end
+
+    def httpsql_selectable_join_columns
+      httpsql_join_tables.map do |join|
+        obj = httpsql_objectify(join)
+        obj.column_names.map do |col|
+          "#{join}.#{col}"
+        end
+      end.flatten
+    end
+
+    def httpsql_selected_join_params
+      @httpsql_params.select do |k,v|
+        spl = k.to_s.split('.', MAX_PARAMS)
+        spl[1] && httpsql_selectable_join_columns.include?("#{spl[0]}.#{spl[1]}")
+      end
+    end
+
+    def httpsql_selected_params
+      @httpsql_params.select do |k,v|
+        spl = k.to_s.split('.', MAX_PARAMS)
+        column_names.include?(spl.first)
+      end
+    end
+
     def httpsql_valid_params
-      @httpsql_params.select{|k,v| column_names.include?(k.to_s.split('.').first)}
+      httpsql_selected_params.merge httpsql_selected_join_params
     end
 
     def httpsql_quote_value(v)
@@ -138,30 +180,33 @@ module Httpsql
       end
     end
 
-    def httpsql_extract_method(key, method, value)
+    def httpsql_extract_method(table, key, method, value)
+      t = httpsql_arelize(table)
+      # table.column.sum, table.column.minimum, table.column.maximum
       # column.sum, column.minimum, column.maximum
       if %w(sum minimum maximum).include?(method)
-        @httpsql_fields << arel_table[key].send(method).as(key)
+        @httpsql_fields << t[key].send(method).as(key)
       # column.function=arg1,arg2
-      elsif !arel_table[key].respond_to?(method)
+      elsif !t[key].respond_to?(method)
         args = value.split(',')
-        @httpsql_fields << Arel::Nodes::NamedFunction.new(method, [arel_table[key], *args], key)
+        @httpsql_fields << Arel::Nodes::NamedFunction.new(method, [t[key], *args], key)
       # column.arel_predicate (ie lt, gt, not_eq, etc)
       else
         Array(value).each do |v|
-          @httpsql_conds << arel_table[key].send(method, v)
+          @httpsql_conds << t[key].send(method, v)
         end
       end
     end
 
-    def httpsql_extract_default_predicates(key, value)
+    def httpsql_extract_default_predicates(table, key, value)
+      t = httpsql_arelize(table)
       # column[]=1&column[]=2
       if value.respond_to?(:any?)
-        @httpsql_conds << arel_table[key].in(value)
+        @httpsql_conds << t[key].in(value)
 
       # column=1
       else
-        @httpsql_conds << arel_table[key].eq(value)
+        @httpsql_conds << t[key].eq(value)
       end
     end
 
